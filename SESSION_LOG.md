@@ -300,3 +300,42 @@ real proof, the scale test just guards against an export that outlasts a counter
 
 **Next task (queue, all ⏳ until verified):** T5 — `sync_outbox` write-in-transaction + `SyncEngine` +
 `NoopSyncGateway` + stuck-badge counter (`core/sync/`). That completes Phase T.
+
+---
+
+## 2026-09-05 (later) — screens finished, T5 shipped, outbox atomicity fix
+
+Wrote the last v1 surfaces and the last v1 subsystem, then fixed a real atomicity
+bug in what I had just written. Full file list is `git show --stat HEAD~2..HEAD`; the
+decisions that outlive a diff:
+
+- **Reports screen**: day stepper, `DailyTotals`' own getters (nothing re-derived in
+  UI), hour strip drawn with Containers (no chart dependency), CSV → clipboard.
+  Bestsellers window is `[from, from+1d)` because `ordersBetween` is half-open —
+  a single-day report asking for `(Tue, Tue)` had no rows after midnight.
+- **Roles**: `currentRoleProvider` + `UserRole.*` getters are the only permission
+  path now; comparing `session.roleName` to display strings was removed from the KDS.
+- **Cash up**: `StaffRepository.expectedCashFor` — the dialog must not re-add float +
+  payments itself, or "expected" has two definitions.
+- **T5**: engine (`sync/sync_engine.dart`) + `OutboxDao` (a new file — the class never
+  existed; the model and the table did) + `sync_journal.dart`. Rules: delete only on an
+  explicit ack; attempts incremented in SQL with the `stuck` threshold in the same
+  statement; `in_flight` released at `start()` ONLY (per-cycle release would un-lease a
+  slow upload → double-send); polling disabled unless `gateway.isRemote` (no server, no
+  battery drain); drained rows DELETED, not flagged.
+- **Schema v3**: `sync_outbox.last_error`, additive via the repeatable
+  `createAll`+`ALTER` template already documented for v2.
+- **pubspec**: `flutter_test` → `dependencies` (because `AppDatabase.memory()` lives in
+  `lib/` so a widget test overrides one provider); `share_plus` and `intl` removed with
+  their non-existent call sites; `path` added (imported by `connection.dart`).
+- **Z2**: `tools/apply_android_config.sh`, self-tested against a fake `android/` tree
+  (4 edits applied, re-run = 0 edits, failures exit 1).
+- New tests: `test/features/kds_wait_test.dart`, `test/features/billing_rounding_test.dart`
+  (`roundUpTo` and `waitedMinutes` are public *for* them), plus the two `test/sync/` files.
+
+**Status unchanged and important: still never compiled.** 83 files / 17.4k lines / max
+542 / `tools/dart_balance.py` BALANCED. `flutter analyze` is the first tool that can
+catch an invented member name, and I found several by hand this session
+(`Money * int`, `item.noteHint`, `RadioListTile(groupValue:)`, a nonexistent
+`OutboxDao`, `DigitBuffer(initial:)` which I then added for real). Expect more of the
+same class; each is a one-line fix in the screen, not in the architecture.

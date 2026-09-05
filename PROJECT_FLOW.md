@@ -337,6 +337,12 @@ green, but they are not a compile.
 | Z2 android config | `tools/apply_android_config.sh` (self-tested against a fake `android/` tree; idempotent) | ⏳ written |
 | pubspec | `flutter_test` moved into `dependencies` (so `AppDatabase.memory()` compiles in release); `share_plus` + `intl` removed with their (non-existent) call sites; `path` added | ⏳ written |
 
+Third pass on T5 changed the *shape* of the write path, so read those diffs
+(`git show` the commit ending "ATOMIC with the write they describe"): every outbox
+row is now inserted inside the same transaction as the row it describes
+(`replaceTicket(journalPayload:)`), and `at` is shared with the data write so the
+queue's order matches the till's order.
+
 Two consistency fixes worth re-checking by eye, because they were made while
 auditing invented APIs:
 * `currentRoleProvider` (`core/providers.dart`) is now the only way a screen tests a
