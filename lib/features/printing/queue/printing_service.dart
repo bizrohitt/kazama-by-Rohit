@@ -97,18 +97,27 @@ class PrintingService {
     if (ticket == null) {
       throw StateError('cannot print: ticket $ticketId not found');
     }
-    final payments = await _payments.paymentsFor(ticketId);
     final prior = await _db.receiptsFor(ticketId);
-    final model = ReceiptModel.forTicket(
-      ticket: ticket,
-      payments: payments,
-      shopName: shopName,
-      address: shop.address,
-      gstin: shop.gstin,
-      phone: shop.phone,
-      widthColumns: s.widthColumns,
-      reprintOf: prior.length,
-    );
+    // A KOT is built by its own factory, which cannot emit a price — so the
+    // kitchen slip's "no prices" rule is not re-implemented here (and cannot be
+    // broken by a future edit to the bill renderer).
+    final model = kind == ReceiptKind.kitchen
+        ? ReceiptModel.forKitchenTicket(
+            ticket: ticket,
+            shopName: shopName,
+            widthColumns: s.widthColumns,
+            reprintOf: prior.length,
+          )
+        : ReceiptModel.forTicket(
+            ticket: ticket,
+            payments: await _payments.paymentsFor(ticketId),
+            shopName: shopName,
+            address: shop.address,
+            gstin: shop.gstin,
+            phone: shop.phone,
+            widthColumns: s.widthColumns,
+            reprintOf: prior.length,
+          );
     final bytes = _builder.build(model);
     final target = device ?? PrinterDevice(id: 'default', name: 'Default printer', paperWidthColumns: s.widthColumns);
     final receiptId = _ids.newId();

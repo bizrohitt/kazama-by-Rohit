@@ -8,13 +8,17 @@
 /// (O6) — `liveQuantity` keeps it visible instead of pretending it never happened.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/providers.dart';
+import '../../../data/models/enums.dart';
 import '../../../data/models/order.dart';
 import '../../../data/models/order_line.dart';
+import '../../printing/queue/printing_service.dart';
 
 class TicketLineTile extends ConsumerWidget {
   const TicketLineTile({
@@ -210,7 +214,7 @@ class TicketFooter extends ConsumerWidget {
                                 ticketId: ticket.id,
                                 actorId: ref.read(currentSessionProvider).userId ?? 'system',
                               );
-                              if (context.mounted) showSnack(context, 'Sent to kitchen');
+                              if (context.mounted) _printKot(context, ref, ticket.id);
                             } catch (e) {
                               if (context.mounted) showSnack(context, '$e', error: true);
                             }
@@ -240,4 +244,26 @@ class TicketFooter extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Fire succeeded, so the kitchen slip is attempted — never awaited by the
+/// button, and never able to fail the sale (P2). A print failure goes to the
+/// retry queue; what the cashier is told is that the slip may not have printed,
+/// which is actionable in a way "print failed" is not.
+void _printKot(BuildContext context, WidgetRef ref, String ticketId) {
+  unawaited(() async {
+    try {
+      final out = await ref.read(printingProvider).printTicket(
+        ticketId: ticketId,
+        kind: ReceiptKind.kitchen,
+      );
+      if (!out.delivered && context.mounted) {
+        showSnack(context, 'Bill is in the kitchen. Slip did not print (${out.error ?? 'queued'}) — reprint it from the KDS.', error: true);
+      } else if (context.mounted) {
+        showSnack(context, 'Sent to kitchen');
+      }
+    } catch (e) {
+      if (context.mounted) showSnack(context, 'Sent to kitchen; slip failed: $e', error: true);
+    }
+  }());
 }

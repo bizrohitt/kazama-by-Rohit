@@ -87,6 +87,7 @@ final class ReceiptModel {
     required int widthColumns,
     int reprintOf = 0,
     bool showTax = true,
+    bool showPrices = true,
   }) {
     final w = widthColumns;
     final t = ticket.totals;
@@ -113,21 +114,22 @@ final class ReceiptModel {
       if (ticket.lines.isEmpty)
         const ReceiptLineModel('(no items)')
       else
-        for (final l in ticket.lines) ..._lineBlock(l, w),
+        for (final l in ticket.lines) ..._lineBlock(l, w, showPrices: showPrices),
       ReceiptLineModel.rule(),
-      _row('SUBTOTAL', _rupees(t.lineBase), w),
-      if (t.discount.isPositive) _row('DISCOUNT', '-${_rupees(t.discount)}', w),
-      if (showTax) _row('GST', _rupees(t.tax), w),
-      if (!t.rounding.isZero) _row('ROUNDING', _rupeesDelta(t.rounding.paise), w),
+      if (showPrices) _row('SUBTOTAL', _rupees(t.lineBase), w),
+      if (showPrices && t.discount.isPositive) _row('DISCOUNT', '-${_rupees(t.discount)}', w),
+      if (showPrices && showTax) _row('GST', _rupees(t.tax), w),
+      if (showPrices && !t.rounding.isZero) _row('ROUNDING', _rupeesDelta(t.rounding.paise), w),
       ReceiptLineModel.rule(),
-      ReceiptLineModel(
-        _dualLeftRight('TOTAL', _rupees(t.total), w),
-        emphasis: ReceiptEmphasis.bold,
-      ),
-      ReceiptLineModel.rule(),
+      if (showPrices)
+        ReceiptLineModel(
+          _dualLeftRight('TOTAL', _rupees(t.total), w),
+          emphasis: ReceiptEmphasis.bold,
+        ),
+      if (showPrices) ReceiptLineModel.rule(),
     ];
 
-    if (payments.isNotEmpty) {
+    if (showPrices && payments.isNotEmpty) {
       body.add(const ReceiptLineModel('PAYMENT'));
       for (final p in payments) {
         body.add(_row('  ${p.mode.label}', _rupees(p.amount), w));
@@ -138,7 +140,7 @@ final class ReceiptModel {
       }
       body.add(ReceiptLineModel.rule());
     }
-    if (!ticket.due.isZero) {
+    if (showPrices && !ticket.due.isZero) {
       body.add(ReceiptLineModel(_dualLeftRight('DUE', _rupees(ticket.due), w), emphasis: ReceiptEmphasis.bold));
       body.add(ReceiptLineModel.rule());
     }
@@ -148,6 +150,11 @@ final class ReceiptModel {
       ReceiptLineModel(_stamp(DateTime.now()), align: ReceiptAlign.center),
       if (reprintOf > 0)
         ReceiptLineModel('*** DUPLICATE COPY $reprintOf ***', align: ReceiptAlign.center, emphasis: ReceiptEmphasis.bold),
+      // A KOT says so at the top: a cook who mistakes a reprint for a second
+      // order makes duplicate food, and that waste never shows up in the till's
+      // numbers.
+      if (kind == ReceiptKind.kitchen)
+        ReceiptLineModel('*** KITCHEN ***', align: ReceiptAlign.center, emphasis: ReceiptEmphasis.double),
       if (ticket.status == OrderStatus.voided)
         ReceiptLineModel('VOID: ${ticket.voidReason ?? '-'}', align: ReceiptAlign.center, emphasis: ReceiptEmphasis.double),
       // Four feeds: past the tear bar on the cheap printers, which cut short.
@@ -163,18 +170,53 @@ final class ReceiptModel {
     );
   }
 
+  /// The kitchen slip (K4): bill number, table, quantities, modifiers, notes —
+  /// and NO money anywhere, by construction. There is no `showPrices` argument to
+  /// forget here: this factory cannot build a priced slip, so "the KOT leaked the
+  /// prices" is not a mistake a counter can configure into existence.
+  static ReceiptModel forKitchenTicket({
+    required OrderTicket ticket,
+    required String shopName,
+    required int widthColumns,
+    int reprintOf = 0,
+  }) {
+    final model = forTicket(
+      ticket: ticket,
+      // An empty ledger makes the absence of payment/DUE lines true rather than
+      // merely likely, and reuses the one layout that already wraps at width.
+      payments: const <Payment>[],
+      shopName: shopName,
+      address: null,
+      gstin: null,
+      phone: null,
+      widthColumns: widthColumns,
+      reprintOf: reprintOf,
+      showPrices: false,
+    );
+    return ReceiptModel(
+      kind: ReceiptKind.kitchen,
+      headerLines: model.headerLines,
+      body: model.body,
+      footerLines: model.footerLines,
+      widthColumns: widthColumns,
+    );
+  }
+
   /// Item name + amount on one line, modifiers underneath, exactly the two-row
   /// layout a 32-column bill can actually hold (a single-row "name ... qty price"
   /// truncates "Chicken Hakka Noodles" on the common printer).
-  static List<ReceiptLineModel> _lineBlock(TicketLine l, int w) {
+  /// `showPrices: false` is the kitchen slip (K4): the same block, minus every
+  /// money figure — a cook must not have to edit a printed ticket to hide a price
+  /// from a customer standing at the pass.
+  static List<ReceiptLineModel> _lineBlock(TicketLine l, int w, {bool showPrices = true}) {
     final qty = l.quantity;
     final left = '$qty x ${l.nameSnapshot}';
-    final right = _rupees(l.lineTotal);
+    final right = showPrices ? _rupees(l.lineTotal) : '';
     final out = <ReceiptLineModel>[
       ReceiptLineModel(_dualLeftRight(left, right, w)),
     ];
     for (final m in l.modifiers) {
-      if (m.priceDelta.isPositive) {
+      if (showPrices && m.priceDelta.isPositive) {
         out.add(ReceiptLineModel('  + ${m.name} (${_rupees(m.priceDelta)})'));
       } else {
         out.add(ReceiptLineModel('  + ${m.name}'));
