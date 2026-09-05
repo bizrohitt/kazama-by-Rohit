@@ -15,7 +15,6 @@ import '../../../core/money/money.dart';
 import '../../../core/providers.dart';
 import '../../../data/models/enums.dart';
 import '../../../data/models/payment.dart';
-
 import '../../../data/models/staff.dart';
 import '../../../data/repositories/contract/staff_repository.dart';
 
