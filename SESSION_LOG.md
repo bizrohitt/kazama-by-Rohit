@@ -339,3 +339,31 @@ catch an invented member name, and I found several by hand this session
 (`Money * int`, `item.noteHint`, `RadioListTile(groupValue:)`, a nonexistent
 `OutboxDao`, `DigitBuffer(initial:)` which I then added for real). Expect more of the
 same class; each is a one-line fix in the screen, not in the architecture.
+
+Same day, continued — the last v1 features + three correctness fixes found by re-reading
+my own diffs:
+
+- **KOT printing (K4)** was missing entirely: Fire wrote the ticket and deducted stock, and the
+  kitchen heard nothing. Now `ReceiptKind.kitchen` + `ReceiptModel.forKitchenTicket` (a factory
+  that *cannot* emit prices — it passes an empty ledger, so the rule is structural, not a flag
+  a caller must remember), `PrintingService.printTicket` branches on kind, the Fire button
+  prints after the transaction, and the billing screen has "Reprint KOT" because the cashier is
+  who notices a missing slip. Test asserts every money string the bill prints is absent from the
+  KOT and that the cook-visible content (qty, name, modifiers, note, "1 cancelled", bill number,
+  table) is present.
+- **Outbox atomicity** (see commit "ATOMIC with the write they describe"): the journal row is
+  now inserted inside the same transaction as the row it describes, via
+  `replaceTicket(journalPayload:)`. Also fixes the shared `at` between a ticket write and its
+  stock movements so queue order == causality.
+- **`shop_page._save` was half-saving** (wrote paper width, then bailed on an empty shop name).
+  Validation now precedes every write.
+- `tools/dart_refs.py`: name-existence sweep (not a type checker) that synthesises drift's
+  generated table/DAO getters from the class declarations, because `*.g.dart` doesn't exist yet
+  and `db.syncOutbox` would otherwise read as a missing member. Current run: no domain-name
+  findings — everything left in its output is Flutter/dart:core surface.
+- v1 scope check: every `ref.read(*Provider).method(...)` in `features/` now resolves against a
+  contract declaration (checked mechanically, one pass).
+
+Remaining for v1, in order: run `pub get` + `build_runner` + `flutter analyze` and fix whatever
+it finds (the external tester owns this now); P4 real Bluetooth transport; `share_plus` for
+exporting a snapshot; T6 Supabase gateway behind `SyncGateway`; then R5 styling passes.

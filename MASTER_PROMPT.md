@@ -154,3 +154,8 @@ Say **`resume`**. The next session must then:
 **Open questions still unanswered (ask once, then proceed):** receipt paper width (58 vs 80 mm),
 whether you have real printer hardware, GST/tax rates per item class, and whether staff PIN login
 is needed on day 1 or after payments.
+→ **Status 2026-09-05:** never answered across four asks; the recorded defaults are now IN THE
+CODE and treated as chosen (32 columns = 58 mm default in `app_meta`, overridable in the Shop &
+printer screen; `FakePrintTransport` until P4; GST inclusive per item at the item's own
+`taxPercent`; staff PIN from the first launch, because `KazamaGate` cannot render a till with no
+user). Overriding any of these is a small, local change — see PROJECT_FLOW §4b for which file.
