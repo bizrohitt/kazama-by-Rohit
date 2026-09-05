@@ -53,12 +53,16 @@ class _ShopPageState extends ConsumerState<ShopPage> {
   }
 
   Future<void> _save() async {
-    final db = ref.read(appDatabaseProvider);
-    await db.setMetaValue(MetaKeys.printerPaperColumns, '$_columns');
+    // Validate EVERYTHING before writing anything: the first version of this
+    // handler saved the paper width and then bailed on an empty name, which is a
+    // half-saved settings screen — the printer now lays out at the new width
+    // while the header is still the old one, and nobody can tell from the screen.
     if (_name.text.trim().isEmpty) {
       setState(() => _message = 'A receipt with no shop name is a receipt nobody can identify.');
       return;
     }
+    final db = ref.read(appDatabaseProvider);
+    await db.setMetaValue(MetaKeys.printerPaperColumns, '$_columns');
     await ref.read(printingProvider).saveShopProfile(
       ShopProfile(
         name: _name.text.trim(),

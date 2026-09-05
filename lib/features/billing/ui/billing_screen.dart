@@ -65,6 +65,22 @@ class _TicketSummary extends ConsumerWidget {
   final OrderTicket ticket;
   final ValueChanged<String> onError;
 
+  Future<void> _reprintKot(BuildContext context, WidgetRef ref) async {
+    try {
+      final out = await ref.read(printingProvider).printTicket(
+        ticketId: ticket.id,
+        kind: ReceiptKind.kitchen,
+      );
+      if (context.mounted) {
+        onError(out.delivered
+            ? 'Kitchen slip reprinted'
+            : 'Printer did not answer: ${out.error ?? 'queued for retry'}');
+      }
+    } catch (e) {
+      if (context.mounted) onError('$e');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ticket.totals;
@@ -84,6 +100,14 @@ class _TicketSummary extends ConsumerWidget {
                   style: theme.textTheme.titleLarge,
                 ),
               ),
+              // The kitchen reprint lives here rather than on the KDS because the
+              // person who notices a missing slip is the cashier, not the cook, and
+              // the two reasons differ: "printer jammed" vs "I never saw it".
+              if (ticket.firedAt != null)
+                TextButton(
+                  onPressed: () => _reprintKot(context, ref),
+                  child: const Text('Reprint KOT'),
+                ),
               TextButton(
                 onPressed: () => ref.read(activeTicketIdProvider.notifier).state = null,
                 child: const Text('Pick another'),
