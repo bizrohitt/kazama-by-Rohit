@@ -333,6 +333,21 @@ green, but they are not a compile.
 | U shell | `app/theme.dart`, `app/main.dart`, `app/kazama_app.dart`, `app/shell.dart`, `app/widgets/number_pad.dart` | ⏳ written |
 | Feature screens | sign-in, order+modifier sheet, billing, KDS, stock, menu editor, settings hub, shop/printer, staff/shift, backup | ⏳ written (11 files, all <600 lines) |
 | T5 sync outbox | `sync/sync_engine.dart`, `sync/sync_gateway.dart`, `data/daos/outbox_dao.dart`, `data/repositories/impl/sync_journal.dart` | ⏳ written + 2 test files |
+| R reports screen | `features/reports/ui/reports_screen.dart` (day totals, shifts, top items, hour strip, CSV→clipboard) | ⏳ written |
+| Z2 android config | `tools/apply_android_config.sh` (self-tested against a fake `android/` tree; idempotent) | ⏳ written |
+| pubspec | `flutter_test` moved into `dependencies` (so `AppDatabase.memory()` compiles in release); `share_plus` + `intl` removed with their (non-existent) call sites; `path` added | ⏳ written |
+
+Two consistency fixes worth re-checking by eye, because they were made while
+auditing invented APIs:
+* `currentRoleProvider` (`core/providers.dart`) is now the only way a screen tests a
+  role — `kds_screen.dart` used to compare `roleName` against the display strings, and
+  the provider accepts both `UserRole.name` and `.label` because `SignInScreen` writes
+  the label.
+* `roundUpTo` (`features/billing/ui/billing_screen.dart`) and `waitedMinutes`
+  (`kds_screen.dart`) are public *for their tests* (`test/features/`), not for
+  decoration; `Shift.openingFloat + collected` was replaced by
+  `StaffRepository.expectedCashFor` so the cash-up dialog and the shift list cannot
+  disagree about what "expected" means.
 
 ### What the external tester should run, in this order
 

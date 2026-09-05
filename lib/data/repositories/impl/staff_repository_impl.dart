@@ -171,6 +171,9 @@ class StaffRepositoryImpl implements StaffRepository {
       db.drawerFromCash(from: shift.openedAt, to: shift.closedAt);
 
   @override
+  Future<Money> expectedCashFor(Shift shift) async => shift.openingFloat + await cashCollectedDuring(shift);
+
+  @override
   Future<List<ShiftSummary>> shiftSummaries({DateTime? from, DateTime? to}) async {
     final shifts = await db.shiftsInRange(from: from, to: to);
     final names = {for (final u in await db.allUsers(includeInactive: true)) u.id: u.name};

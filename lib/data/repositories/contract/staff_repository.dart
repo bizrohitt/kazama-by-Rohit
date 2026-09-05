@@ -53,6 +53,12 @@ abstract interface class StaffRepository {
   /// Cash actually in the drawer for a shift: cash-tendered rows minus change given.
   Future<Money> cashCollectedDuring(Shift shift);
 
+  /// What SHOULD be in the drawer at this moment: opening float + cash collected.
+  /// Exposed so a cash-up dialog cannot re-derive the rule (a UI that sums float
+  /// and payments itself is how a shift ends up counted against the wrong target,
+  /// silently, in one place out of two).
+  Future<Money> expectedCashFor(Shift shift);
+
   /// For the reports screen: every shift with its variance already computed.
   Future<List<ShiftSummary>> shiftSummaries({DateTime? from, DateTime? to});
 }

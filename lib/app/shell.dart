@@ -1,10 +1,12 @@
 /// The counter shell (Task U2).
 ///
-/// Five tabs, one IndexedStack. The stack (rather than swapping routes) is the
+/// Six tabs, one IndexedStack. The stack (rather than swapping routes) is the
 /// point: a cashier who jumps to the KDS to check a dish and back must find the
 /// half-built ticket exactly as they left it, with the modifier sheet still
 /// open. A `NavigationBar` rather than tabs because five is the most this fits
-/// with 56 dp targets (R5: nothing here is decorative).
+/// with 56 dp targets (R5: nothing here is decorative). Six is the practical
+/// maximum for a 800dp-wide tablet in portrait; a seventh destination would have
+/// to displace one, not be added.
 library;
 
 import 'package:flutter/material.dart';
@@ -17,6 +19,7 @@ import '../features/billing/ui/billing_screen.dart';
 import '../features/inventory/ui/stock_screen.dart';
 import '../features/kitchen_display/ui/kds_screen.dart';
 import '../features/order_taking/ui/order_screen.dart';
+import '../features/reports/ui/reports_screen.dart';
 import '../features/reports/ui/settings_screen.dart';
 
 class KazamaShell extends ConsumerWidget {
@@ -43,6 +46,7 @@ class KazamaShell extends ConsumerWidget {
           OrderScreen(),
           BillingScreen(),
           KdsScreen(),
+          ReportsScreen(),
           StockScreen(),
           SettingsScreen(),
         ],
@@ -57,6 +61,7 @@ class KazamaShell extends ConsumerWidget {
             label: 'Pay',
           ),
           const NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Kitchen'),
+          const NavigationDestination(icon: Icon(Icons.query_stats_outlined), label: 'Reports'),
           const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Stock'),
           const NavigationDestination(icon: Icon(Icons.tune), label: 'Settings'),
         ],

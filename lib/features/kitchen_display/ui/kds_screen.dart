@@ -38,8 +38,11 @@ class KdsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tickets = ref.watch(kitchenTicketsProvider);
-    final me = ref.watch(currentSessionProvider);
-    final canCook = me.roleName == 'Kitchen' || me.roleName == 'Manager' || me.roleName == null;
+    // By role, not by the label string (see `currentRoleProvider`): ticking a
+    // line is a kitchen action, and `UserRole.canViewKds` is where that rule is
+    // written for every screen.
+    final role = ref.watch(currentRoleProvider);
+    final canCook = role == null || role.canViewKds; // unsigned-in (preview) may tick
     return Scaffold(
       body: tickets.when(
         loading: () => const Center(child: CircularProgressIndicator()),

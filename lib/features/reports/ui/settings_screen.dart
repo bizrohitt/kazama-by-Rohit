@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../data/models/enums.dart';
 import 'backup_page.dart';
+import 'reports_screen.dart';
 import 'menu_editor_page.dart';
 import 'shop_page.dart';
 import 'staff_shift_page.dart';
@@ -50,6 +51,13 @@ class SettingsScreen extends ConsumerWidget {
           title: 'Staff & shifts',
           subtitle: 'Add a cashier, close a shift, cash up',
           onTap: () => _push(context, const StaffShiftPage()),
+          disabled: !isManager,
+        ),
+        _Tile(
+          icon: Icons.query_stats_outlined,
+          title: 'Daily report',
+          subtitle: 'Totals, modes, top items, shifts — by day',
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ReportsScreen())),
           disabled: !isManager,
         ),
         _Tile(

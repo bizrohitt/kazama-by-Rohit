@@ -22,18 +22,32 @@ one small task per loop with a device-verified Pass/Fail gate · functionality b
 
 ## Current state
 
-⏳ **Phase 1 — plan delivered, awaiting approval. No app code exists yet.**
-`lib/` and `pubspec.yaml` appear only after approval (Phase 2, Task T1).
+⏳ **v1 code is written; nothing has been compiled yet.** ~17.3k lines of Dart across
+81 files — the whole vertical slice (order → kitchen → billing → print → reports →
+staff → inventory → backup → sync outbox) plus 10 test files. The sandbox that wrote
+it has no Dart/Flutter SDK and no network to `pub.dev` (see `SESSION_LOG.md`), so
+`tools/dart_balance.py` (brace/quote balance, 600-line limit) is the only static gate
+available. **`flutter analyze` is the first real gate** and `PROJECT_FLOW.md` §4b lists
+what each area still needs from it.
 
 ## Setup (run on your machine — this repo has no CI toolchain)
 
 ```bash
 flutter --version && flutter doctor          # need a clean Android toolchain
 flutter create --org com.kazama --project-name kazama_pos --platforms=android,ios .
+tools/apply_android_config.sh                # minSdk 23, orientation lock, largeHeap (Z2)
 flutter pub get
+dart run build_runner build --delete-conflicting-outputs   # drift codegen (T3)
+flutter analyze
+flutter test                                 # 10 files, incl. the DB-backed ones
 adb devices                                  # your realme phone, or an AVD
 flutter run
 ```
+
+The `flutter create` step is not optional and is why the repo has no `android/` or
+`ios/` directory: those folders are generated, and `tools/apply_android_config.sh`
+patches them afterwards. Re-running `flutter create` is safe — the script is idempotent
+and reports what it changed.
 
 ## Licence
 

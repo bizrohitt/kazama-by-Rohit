@@ -243,9 +243,10 @@ class _ShiftCard extends ConsumerWidget {
   }
 
   Future<void> _closeShift(BuildContext context, WidgetRef ref, Shift shift) async {
-    final collected = await ref.read(staffRepositoryProvider).cashCollectedDuring(shift);
+    // The target comes from the repository, not from a sum typed here: see the
+    // note on `expectedCashFor`.
+    final expected = await ref.read(staffRepositoryProvider).expectedCashFor(shift);
     if (!context.mounted) return;
-    final expected = shift.openingFloat + collected;
     final counted = await showDialog<Money>(
       context: context,
       builder: (c) => _CountDialog(expected: expected),
@@ -408,7 +409,7 @@ class _DueCard extends ConsumerWidget {
                 title: Text(e.key),
                 subtitle: Text(
                   '${open[e.key]!.length} open bill(s)  ·  since ${_stamp(open[e.key]!.first.at)}'
-                  '${open[e.key]!.first.at.difference(DateTime.now()).inDays.abs() > 30 ? '  ·  ageing' : ''}',
+                  '${DateTime.now().difference(open[e.key]!.first.at).inDays > 30 ? '  ·  ageing (over 30 days)' : ''}',
                   style: theme.textTheme.bodySmall,
                 ),
                 trailing: Text(rupeesText(e.value), style: theme.textTheme.titleMedium),

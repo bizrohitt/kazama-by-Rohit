@@ -385,7 +385,7 @@ class _PayPanelState extends ConsumerState<_PayPanel> {
                   child: OutlinedButton(
                     onPressed: () {
                       _amount.clear();
-                      _amount.append(_roundUpTo(due).toString());
+                      _amount.append(roundUpTo(due).toString());
                     },
                     child: const Text('Round up'),
                   ),
@@ -467,10 +467,13 @@ class _PayPanelState extends ConsumerState<_PayPanel> {
 }
 
 /// Smallest round note value that covers the due, in rupees (Y2's "Round up"):
+/// Pure, public for `test/features/billing_rounding_test.dart`, and pure on
+/// purpose: a cashier-facing money decision must be assertable without a widget.
+///
 /// 330.00 due -> 500, 45 -> 50. Indian notes are 10/20/50/100/200/500/2000, so
 /// anything under 10 is exact and the "round up" button should not invent a
 /// ₹1 note that no counter has.
-int _roundUpTo(Money due) {
+int roundUpTo(Money due) {
   final r = (due.paise / 100).ceil();
   const notes = [10, 20, 50, 100, 200, 500, 1000, 2000];
   for (final n in notes) {

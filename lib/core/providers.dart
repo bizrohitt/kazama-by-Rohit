@@ -138,13 +138,17 @@ final StateProvider<PosSession> currentSessionProvider =
 /// permission test that compares a display string is a permission test that
 /// breaks when somebody localises a label.
 final Provider<UserRole?> currentRoleProvider = Provider<UserRole?>((ref) {
-  final session = ref.watch(currentSessionProvider);
-  final role = session.roleName;
+  final role = ref.watch(currentSessionProvider).roleName;
   if (role == null) return null;
+  // `SignInScreen` stores the DISPLAY label ("Manager"), while
+  // `UserRole.fromName` matches the enum name ("manager"); accepting both keeps
+  // this provider correct for whatever a session happens to hold, and the
+  // `fromName` fallback means an unknown string resolves to the least-privileged
+  // role rather than null.
   for (final r in UserRole.values) {
-    if (r.label == role) return r;
+    if (r.label == role || r.name == role) return r;
   }
-  return null;
+  return UserRole.fromName(role);
 });
 
 /// Open credit accounts, live (Y4). A stream rather than a `FutureBuilder`: the

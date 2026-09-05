@@ -13,6 +13,15 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # `flutter_test` in `dependencies` (not only `dev_dependencies`) is a decision,
+  # not a mistake: `AppDatabase.memory()` lives in `lib/` so a widget test can
+  # override ONE provider and run the app in memory. If the package were
+  # dev-only, `lib/core/db/app_database.dart` would fail to compile in a release
+  # build. The alternative — moving `memory()` into `test/` — puts the app's
+  # constructor in a directory the app cannot import from, which is worse.
+  flutter_test:
+    sdk: flutter
+
   # Local database. drift pulls in `sqlite3` + `sqlite3_flutter_libs` itself, so
   # neither is listed here (the common "package duplicated" pub warning).
   drift: ^2.28.0
@@ -32,13 +41,19 @@ dependencies:
   # Staff PIN hashing (S1). SHA-256 + per-user salt; NOT a security boundary.
   crypto: ^3.0.5
 
-  # Share a receipt text file / backup snapshot (P2, T4, R4).
-  share_plus: ^10.1.2
+  # Path joining for the DB file + backup dir (used by `core/db/connection.dart`).
+  # BSD-3, zero transitive weight, and it avoids hand-rolling separators for a
+  # path that must be right on both Android and iOS.
+  path: ^1.9.0
 
-  # Number/date formatting. Pinned loosely on purpose: Flutter's SDK pins an
-  # exact intl version, and an over-tight constraint here is the single most
-  # common "version solving failed" in a fresh Flutter app.
-  intl: ^0.19.0
+  # REMOVED before the first build, with their call sites:
+  #  * `share_plus` — the export screen writes a snapshot to the app's backups
+  #    folder and shows the path; sharing it (WhatsApp/Drive) is a 3-line call
+  #    that cannot be tested from this repo, so it lands with the device run
+  #    rather than being declared unused.
+  #  * `intl` — every amount here is `Money`, whose own formatter is 4 lines and
+  #    has no locale table to be wrong. `flutter_localizations` is not enabled,
+  #    so `intl` would have been a dependency nothing imports.
 
 dev_dependencies:
   flutter_test:
