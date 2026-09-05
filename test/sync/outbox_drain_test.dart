@@ -196,13 +196,25 @@ void main() {
     // which is why a drain of both in one batch is safe.
     await repo.addMenuItem(ticketId: ticket.id, item: const _FakeItem(), quantity: 1);
     await repo.addMenuItem(ticketId: ticket.id, item: const _FakeItem(id: 'i2', name: 'Filter Coffee'), quantity: 2);
-    expect(await db.countPending(), 2);
+    expect(await db.countPending(), 2, reason: 'one mutation per ticket write, in write order');
     final rows = await db.pending();
+    expect(rows.map((m) => m.entityId).toSet(), {ticket.id});
     final last = (rows.last.payload['lines']! as List).cast<Map<String, Object?>>();
     expect(last.length, 2, reason: 'the newest mutation carries the whole ticket');
     expect(last[1]['quantity'], 2);
     expect(last[0]['unitPricePaise'], 10000);
     expect((await db.select(db.orders).get()).single.id, ticket.id, reason: 'the write itself landed');
+
+    await repo.fire(ticketId: ticket.id, actorId: 'u1');
+    final fired = await db.pending();
+    expect(fired.length, 3, reason: 'the fire is a third mutation, not a rewrite of the second');
+    expect((fired.last.payload['lines']! as List).length, 2);
+    expect(fired.last.payload['status'], 'inKitchen');
+    expect(
+      DateTime.parse(fired.last.payload['updatedAt']! as String).isAfter(DateTime.parse(fired.first.payload['updatedAt']! as String)),
+      isTrue,
+      reason: 'the server applies these in queue order, so the last write must be the last row',
+    );
 
     final engine = SyncEngine(outbox: db, gateway: const NoopSyncGateway());
     await engine.flush();

@@ -73,16 +73,15 @@ mixin TicketMutator {
     final next = transform(current);
     final now = DateTime.now();
     await db.transaction(() async {
-      await db.replaceTicket(next, at: now);
-      if (journalTicket) {
-        await journal(
-          entity: 'order',
-          entityId: ticketId,
-          op: MutationOp.update,
-          payload: ticketPayload(next),
-          at: now,
-        );
-      }
+      // The outbox row is written by `replaceTicket`, INSIDE its transaction.
+      // Doing it here (after the await) would leave a window where the sale is
+      // durable and its mutation is not — the one failure mode a POS cannot
+      // recover from, since nothing else records that a bill existed.
+      await db.replaceTicket(
+        next,
+        at: now,
+        journalPayload: journalTicket ? ticketOutboxPayload(next) : null,
+      );
       if (eventType != null) {
         await db.appendEvent(
           orderId: ticketId,
@@ -96,11 +95,12 @@ mixin TicketMutator {
     return next;
   }
 
-  /// The wire shape of a ticket. Deliberately a hand-rolled map rather than
+  /// The wire shape of a ticket. Public because the DAO takes it as a parameter
+  /// (see the note in `mutate`); deliberately a hand-rolled map rather than
   /// `OrderTicket.toJson` (which does not exist): the payload must be the
   /// *minimal* thing a server needs, and every field added to a POS model would
   /// otherwise silently enlarge every outbox row and every backup.
-  Map<String, Object?> ticketPayload(OrderTicket t) => {
+  Map<String, Object?> ticketOutboxPayload(OrderTicket t) => {
         'id': t.id,
         'status': t.status.name,
         'billNumber': t.billNumber,

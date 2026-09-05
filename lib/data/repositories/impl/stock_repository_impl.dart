@@ -10,8 +10,10 @@ import '../../../core/db/app_database.dart';
 import '../../../core/money/money.dart';
 import '../../../core/utils/id.dart';
 import '../../models/menu.dart';
+import '../../models/mutation.dart';
 import '../../models/stock.dart';
 import '../contract/stock_repository.dart';
+import 'sync_journal.dart';
 
 /// Thrown instead of writing a negative on-hand: the caller (fire / pay) decides
 /// whether to block the sale or record the shortfall, but it must decide, and an
@@ -114,9 +116,10 @@ class StockRepositoryImpl implements StockRepository {
       final next = StockMath.apply(current.onHandMilli, delta);
       final at = DateTime.now();
       await db.setOnHand(stockItemId, milli: next, at: at);
+      final movementId = ids.newId();
       await db.insertMovement(
         StockMovementRowData(
-          id: ids.newId(),
+          id: movementId,
           stockItemId: stockItemId,
           kind: kind,
           deltaMilli: delta,
@@ -126,6 +129,7 @@ class StockRepositoryImpl implements StockRepository {
           note: note,
         ),
       );
+      await _journal(movementId, stockItemId, kind, delta, next, at, ticketId: null);
     });
   }
 
@@ -191,9 +195,10 @@ class StockRepositoryImpl implements StockRepository {
           continue;
         }
         await db.setOnHand(e.key, milli: next, at: at);
+        final movementId = ids.newId();
         await db.insertMovement(
           StockMovementRowData(
-            id: ids.newId(),
+            id: movementId,
             stockItemId: e.key,
             kind: StockMoveKind.sale,
             deltaMilli: -e.value,
@@ -206,6 +211,12 @@ class StockRepositoryImpl implements StockRepository {
             note: '${names[e.key] ?? e.key} -${(e.value / 1000).toStringAsFixed(1)} ${current.unit}',
           ),
         );
+        // Every sale's consumption is journalled with the same `at` the deduction
+        // used, so a server sees the ticket and its stock rows as one moment. The
+        // ORDER across the two transactions (ticket-fire, then this) is what the
+        // drain keeps: `pending()` is oldest-first, so stock never lands before
+        // the fire that caused it.
+        await _journal(movementId, e.key, StockMoveKind.sale, -e.value, next, at, ticketId: ticketId);
       }
       if (shortfalls.isNotEmpty) throw InsufficientStock(shortfalls);
     });
@@ -280,4 +291,35 @@ class StockRepositoryImpl implements StockRepository {
     }
     return total;
   }
+
+  /// One `stockMovement` insert and its outbox mutation, in the caller's
+  /// transaction (T5). Stock is journalled because a day's report without
+  /// wastage is a day that does not reconcile; menu/price edits are NOT, since
+  /// those travel with the snapshot (T4) and a price change is not a sale.
+  Future<void> _journal(
+    String movementId,
+    String stockItemId,
+    StockMoveKind kind,
+    int deltaMilli,
+    int resultingMilli,
+    DateTime at, {
+    required String? ticketId,
+  }) =>
+      journalMutation(
+        db,
+        ids,
+        entity: 'stockMovement',
+        entityId: movementId,
+        op: MutationOp.insert,
+        payload: {
+          'id': movementId,
+          'stockItemId': stockItemId,
+          'kind': kind.name,
+          'deltaMilli': deltaMilli,
+          'resultingMilli': resultingMilli,
+          'ticketId': ticketId,
+          'at': at.toIso8601String(),
+        },
+        at: at,
+      );
 }

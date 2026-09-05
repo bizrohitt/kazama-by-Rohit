@@ -10,8 +10,8 @@ import '../../../core/db/app_database.dart';
 import '../../../core/money/money.dart';
 import '../../../core/utils/id.dart';
 import '../../models/enums.dart';
-import '../../models/mutation.dart';
 import '../../models/menu.dart';
+import '../../models/mutation.dart';
 import '../../models/order.dart';
 import '../../models/order_line.dart';
 import '../../models/payment.dart';
@@ -262,8 +262,15 @@ class OrderRepositoryImpl with TicketMutator implements OrderRepository {
       // share a number" only holds if an app kill cannot land between
       // allocating and persisting it.
       final bill = applied.billNumber == null ? await db.nextBillNumber() : null;
+      // The row as it will exist after this transaction: `replaceTicket` writes
+      // `billNumber ?? t.billNumber`, and the journalled payload must be that row,
+      // not the in-memory one. A server that applied `applied` would store a bill
+      // with no number forever — the number is only ever allocated here.
       await db.replaceTicket(
         applied,
+        // The order row's mutation carries the paid/due figures too, so it must go
+        // through the DAO even here — hence `journalPayload` and no `mutate()` call.
+        journalPayload: ticketOutboxPayload(applied.copyWith(billNumber: applied.billNumber ?? bill)),
         at: now,
         billNumber: bill,
         event: 'payment',

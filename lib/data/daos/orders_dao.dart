@@ -34,6 +34,13 @@ class OrdersDao extends KazamaDao {
   /// [event] writes the audit row in the *same* transaction, which is the only
   /// way "every mutation is recorded" (SKILLS.md §C5) can hold: an event
   /// appended after the write is a gap on every crash between them.
+  /// [journalPayload] is the *post-write* order row for the sync outbox (T5).
+  /// It is a parameter and not a flag because the payload's shape is the
+  /// repository's business (what a server needs) while the ATOMICITY is the DAO's:
+  /// the outbox row must be inserted in this same transaction, or a crash between
+  /// the two writes is a sale the server never hears about and no log can find.
+  /// Seed and restore pass null, which is why the DAO's own header still says the
+  /// outbox "is not written here" — it is not written *for them*.
   Future<void> replaceTicket(
     OrderTicket t, {
     DateTime? at,
@@ -41,6 +48,7 @@ class OrdersDao extends KazamaDao {
     String? event,
     Map<String, Object?> eventPayload = const <String, Object?>{},
     String actorId = 'system',
+    Map<String, Object?>? journalPayload,
   }) async {
     final now = at ?? DateTime.now();
     await db.transaction(() async {
@@ -79,6 +87,22 @@ class OrdersDao extends KazamaDao {
           updatedAt: Value(now),
         ),
       );
+
+      // Lines are replaced rather than diffed: the aggregate always knows the
+      // full truth, and a diff would need a second source of ordering (O2).
+      if (journalPayload != null) {
+        await enqueueMutation(Mutation(
+          id: 'outbox-${t.id}-${now.microsecondsSinceEpoch}',
+          entity: 'order',
+          entityId: t.id,
+          op: MutationOp.update,
+          payload: journalPayload,
+          // One key per (ticket, write instant): a re-run of the same write (the
+          // seed, or a retried repository call) is then a no-op by constraint.
+          idempotencyKey: 'order:${t.id}:${now.microsecondsSinceEpoch}',
+          queuedAt: now,
+        ));
+      }
 
       // Lines are replaced rather than diffed: the aggregate always knows the
       // full truth, and a diff would need a second source of ordering (O2).
