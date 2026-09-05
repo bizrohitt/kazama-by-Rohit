@@ -1,0 +1,56 @@
+name: kazama_pos
+description: "Fast-food point of sale for a single outlet — offline-first, Android & iOS."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+# Every package below is MIT / BSD-3 / Apache-2.0 and has no paid tier gating a
+# feature we use (R6). Licences are re-audited in `tools/check_models.dart`-style
+# fashion at Z6; see MASTER_PROMPT.md §3 for why bloc/get were rejected.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local database. drift pulls in `sqlite3` + `sqlite3_flutter_libs` itself, so
+  # neither is listed here (the common "package duplicated" pub warning).
+  drift: ^2.28.0
+
+  # App documents dir for the DB file + backup export (T4, P2).
+  path_provider: ^2.1.4
+
+  # State + dependency injection. MIT, no codegen, and it is the one that lets a
+  # widget test override `appDatabaseProvider` and run the whole app in memory
+  # (see `core/providers.dart`). Chosen over bloc/get for licence and size (R6).
+  flutter_riverpod: ^2.5.1
+
+  # Client-generated ids come from `core/utils/id.dart`, not `uuid`: our ids only
+  # need per-device uniqueness and a monotonic `<time36>-<counter>` string also
+  # *sorts* chronologically, which `uuid`'s v4 does not. One dependency fewer.
+
+  # Staff PIN hashing (S1). SHA-256 + per-user salt; NOT a security boundary.
+  crypto: ^3.0.5
+
+  # Share a receipt text file / backup snapshot (P2, T4, R4).
+  share_plus: ^10.1.2
+
+  # Number/date formatting. Pinned loosely on purpose: Flutter's SDK pins an
+  # exact intl version, and an over-tight constraint here is the single most
+  # common "version solving failed" in a fresh Flutter app.
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  build_runner: ^2.4.13
+  drift_dev: ^2.28.0
+  # sqlite3's in-memory support is what makes DB unit tests possible without a
+  # device (T3's test relies on it). Pulled in transitively by drift; listed so
+  # the test file may import `sqlite3` types directly if a migration test needs it.
+  sqlite3_flutter_libs: ^0.5.24
+
+flutter:
+  uses-material-design: true
+  # No assets yet — brand/logo land in Z1 (R5: functionality before styling).
