@@ -1,0 +1,34 @@
+# Flutter/Dart generated — matches what `flutter create` writes, plus extras.
+# (Keep this file; if `flutter create .` complains about it, delete it and rerun,
+#  the scaffold will rewrite an equivalent one.)
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+coverage/
+*.log
+*.imi
+# downloads made while researching SDK/packages must never reach the repo
+*.tar.gz
+*.tgz
+*.zip
+*.swp
+.idea/
+.vscode/
+# codegen output is reproducible; committing it makes review diffs huge
+*.g.dart
+*.freezed.dart
+# Android / iOS local noise
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
