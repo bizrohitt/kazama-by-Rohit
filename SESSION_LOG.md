@@ -367,3 +367,23 @@ my own diffs:
 Remaining for v1, in order: run `pub get` + `build_runner` + `flutter analyze` and fix whatever
 it finds (the external tester owns this now); P4 real Bluetooth transport; `share_plus` for
 exporting a snapshot; T6 Supabase gateway behind `SyncGateway`; then R5 styling passes.
+
+Follow-up, same day — two things found while wiring the paid-bill behaviour:
+
+1. **`MenuItem` never implemented `MenuItemLike`.** `OrderRepository.addMenuItem({required
+   MenuItemLike item})` is called with a real `MenuItem` from the order screen, the modifier
+   sheet and every test — so those lines were type errors that had never met a compiler. The
+   interfaces now live in `data/models/line_inputs.dart` (models implement them there; the
+   contract `export`s them, because a model importing the contract would be a cycle). This is the
+   strongest argument yet for `flutter analyze` being run once: no tool in this sandbox can see
+   that class of bug, because every *member name* involved exists.
+2. **`activeTicketProvider` is now a `FutureProvider` with a by-id fallback**, so a bill that has
+   just been paid stays on screen one more read (its own `status`/`due` say "settled") instead of
+   the billing screen bouncing to the due list in the same frame the money was accepted. Readers
+   use `hasValue ? value : previousValue`; the selection is cleared only via
+   `settleActiveTicket(ref)`. `test/features/active_ticket_provider_test.dart` pins all four cases.
+
+Git note: the local branch history had been squashed into one commit while the remote still held
+the seven pushed ones, so the next push was rejected. Resolved with
+`git merge --allow-unrelated-histories -X ours` (my tree won; `git diff` against the pre-merge
+commit was empty, so no file changed) — not a force-push, no remote history destroyed.

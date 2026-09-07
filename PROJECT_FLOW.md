@@ -335,6 +335,9 @@ green, but they are not a compile.
 | T5 sync outbox | `sync/sync_engine.dart`, `sync/sync_gateway.dart`, `data/daos/outbox_dao.dart`, `data/repositories/impl/sync_journal.dart` | ⏳ written + 2 test files |
 | R reports screen | `features/reports/ui/reports_screen.dart` (day totals, shifts, top items, hour strip, CSV→clipboard) | ⏳ written |
 | Z2 android config | `tools/apply_android_config.sh` (self-tested against a fake `android/` tree; idempotent) | ⏳ written |
+| K0 → K4 gap | KOT printing existed in no screen; now `ReceiptKind.kitchen` + `ReceiptModel.forKitchenTicket` + fire-time print + "Reprint KOT" | ⏳ written + test |
+| O2 type error | `MenuItem`/`ModifierOption` did not implement `MenuItemLike`/`ModifierOptionLike`; interfaces moved to `data/models/line_inputs.dart` and are re-exported by the contract | ⏳ fixed pending analyze |
+| Y1 paid-bill flash | `activeTicketProvider` → `FutureProvider` with `loadForReceipt` fallback; `settleActiveTicket(ref)` is the only clear path | ⏳ written + test |
 | pubspec | `flutter_test` moved into `dependencies` (so `AppDatabase.memory()` compiles in release); `share_plus` + `intl` removed with their (non-existent) call sites; `path` added | ⏳ written |
 
 Third pass on T5 changed the *shape* of the write path, so read those diffs
