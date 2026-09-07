@@ -17,6 +17,7 @@ import '../../../data/backup/backup_service.dart';
 import '../../../data/backup/restore_service.dart';
 import '../../../data/backup/snapshot_format.dart';
 import '../../../data/backup/snapshot_validator.dart';
+import '../../../data/tables/menu_tables.dart' show MetaKeys;
 
 class BackupPage extends ConsumerStatefulWidget {
   const BackupPage({super.key});
@@ -31,6 +32,12 @@ class _BackupPageState extends ConsumerState<BackupPage> {
   bool _isError = false;
   List<_BackupFile> _files = const [];
 
+  /// `MetaKeys.backupLastAt`, for the staleness line below. Read from meta and not
+  /// from the newest file's mtime, because those two disagree after a restore onto
+  /// a fresh device — and the honest question is "when did THIS app last write
+  /// one", not "when was something touched on this filesystem".
+  DateTime? _lastAt;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,8 @@ class _BackupPageState extends ConsumerState<BackupPage> {
 
   Future<void> _load() async {
     try {
+      final db = ref.read(appDatabaseProvider);
+      final lastRaw = await db.metaValue(MetaKeys.backupLastAt);
       final dir = await backupDirectory();
       // `snapshotFileName` writes `kazama_backup_<stamp>_<suffix>.json`. Only
       // those are offered: the sidecar (`....json.sha256`) is NOT a restore
@@ -77,7 +86,11 @@ class _BackupPageState extends ConsumerState<BackupPage> {
       await _load();
       if (!mounted) return;
       final rows = _rowsIn(artifact.payload);
+      // Recorded so the reports/settings screens can nag about a day without a
+      // snapshot. A backup nobody can prove is recent is a backup nobody trusts.
+      await ref.read(appDatabaseProvider).setMetaValue(MetaKeys.backupLastAt, DateTime.now().toIso8601String());
       setState(() {
+        _lastAt = DateTime.now();
         _isError = false;
         _message = 'Wrote ${artifact.file.uri.pathSegments.last} · '
             '$rows rows · ${artifact.bytes} bytes.\n'
@@ -155,6 +168,10 @@ class _BackupPageState extends ConsumerState<BackupPage> {
             label: const Text('Write a snapshot now'),
           ),
           const SizedBox(height: 16),
+          // The staleness line, above the list: the list's newest row may be
+          // weeks old and still LOOK fine unless someone says so in words.
+          Text(_stalenessNote, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 6),
           Text('Files on this device', style: theme.textTheme.titleMedium),
           if (_files.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('None yet.')),
           for (final f in _files)
@@ -199,6 +216,22 @@ class _BackupPageState extends ConsumerState<BackupPage> {
         ],
       ),
     );
+  }
+
+  /// Plain words, because "when did you last copy this off the phone?" is a
+  /// question a shopkeeper can only answer if the app remembered it.
+  String get _stalenessNote {
+    final last = _lastAt;
+    if (last == null) {
+      return _files.isEmpty
+          ? 'No snapshot has ever been written from this device.'
+          : 'A snapshot exists but this app has no record of writing it (restored device?).';
+    }
+    final days = DateTime.now().difference(last).inDays;
+    final hour = DateTime.now().difference(last).inHours;
+    if (hour < 1) return 'Last snapshot: just now.';
+    if (days == 0) return 'Last snapshot: ${hour}h ago — write one before you close today.';
+    return 'Last snapshot: $days day${days == 1 ? '' : 's'} ago. Anything sold since then exists ONLY on this phone.';
   }
 
   Future<void> _confirmReplace(_BackupFile f) async {
